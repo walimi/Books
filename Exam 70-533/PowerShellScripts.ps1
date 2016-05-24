@@ -808,5 +808,33 @@ Set-AzureVMAccessExtension -UserName $userName -Password $password |
 Update-AzureVM
 
 
+# Enabling the Puppet virtual machine extension
+$puppetServer = "puppetmaster.cloudapp.net"
+$imageFamily = "Windows Server 2012 R2 Datacenter"
+$imageName = Get-AzureVMImage |
+                where { $_.ImageFamily -eq $imageFamily  } |
+                            sort PublishedDate -Descending |
+                   select -ExpandProperty ImageName -First 1
+
+New-AzureVMConfig -Name $vmName `
+                  -InstanceSize $size `
+                  -ImageName $imageName |
+
+Add-ProvisioningConfig -Windows `
+                       -AdminUserName $adminUser `
+                       -Password $password |
+
+Set-AzureVMPuppetExtension -PuppetMasterServer $puppetServer |
+
+New-AzureVM -ServiceName $serviceName `
+            -Location $location
+                               
+# To enable Puppet extension on a provisioned machine
+$puppetServer = "puppetmaster.cloudapp.net"
+Get-AzureVM -ServiceName $serviceName -Name $vmName |
+Set-AzureVMPuppetExtension -PuppetMasterServer $puppetServer |
+Update-AzureVM
+
+
 
 
