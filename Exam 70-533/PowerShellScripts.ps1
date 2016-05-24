@@ -573,7 +573,7 @@ Configuration ContosoSimple
 # website, stop the default website, and deploy an application from a file share to the 
 # destination website folder.
 
-Configuration ContoseAdvanced
+Configuration ContosoAdvanced
 {
     # Import the module that defines custom resources
     # Import-DscResource -Module xWebAdministration 
@@ -653,7 +653,7 @@ Publish-AzureVMDscConfiguration -ConfigurationPath ".\ContosoAdvanced.ps1" `
                                 -StorageContext $ctx 
                                 
                                 
-# After the configuraiton is published it can applied to any virtual machine at 
+# After the configuraiton is published it be can applied to any virtual machine at 
 # provisioning time or afte the fact using the Set-AzureVMDscExtension cmdlet.
 $configArchive = "ContosoAdvanced.ps1.zip"
 $configName = "ContosoAdvanced"
@@ -769,5 +769,39 @@ Configuration WebSiteConfig
 # Because the script configuraiton has changed, the Publish-VMDscConfiguration cmdlet
 # is used to publish the configuration.
 Publish-AzureVMDscConfiguration .\DeployWebApp.ps1
+
+
+# The followign example uses the ConfigurationDataPath parameter to specify the ContosoConfig.psd1 file
+# which contains application-specific deployment information.
+$configArchive = "DeployWebApp.ps1.zip"
+$configName = "WebsiteConfig"
+
+Get-AzureVM -ServiceName $serviceName -Name $vmName |
+SetAzureVMDscExtension -ConfigurationArchive $configArchive `
+                       -ConfigurationName $configName `
+                       -ConfigurationDataPath .\ContosoConfig.psd1 |
+Update-AzureVM  
+
+
+# To view the current DSC extension configuration
+Get-AzureVM -ServiceName $serviceName -Name $vmName | Get-AzureVMDscExtension
+
+
+# To remove the DSC extension from the VM
+Get-AzureVM -ServiceName $serviceName -Name $vmName |
+Remove-AzueVMDscExtension |
+Update-AzureVM
+
+$config = Get-AzureVM -ServiceName $serviceName -Name $vmName
+$config | Remove-AzureVMDscExtension
+$config | Update-AzureVM
+
+
+# The configuration could be passed on using the VM parameter like this:
+Remove-AzureVMDscExtension -VM $config
+
+# Using the Virtual Machine Acccess Extension
+
+
 
 
