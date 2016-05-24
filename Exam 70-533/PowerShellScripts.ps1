@@ -171,7 +171,7 @@ Test-AzureName -Service -Name $serviceName # True means name already exists
 
 # To set a default storage account
 Set-AzureSubscription -SubscriptionName $subscriptionName `     # must be specified
-                      CurrentStorageAccountName $storageAccount # must be specified
+                      -CurrentStorageAccountName $storageAccount # must be specified
                                                          
                                                          
 
@@ -836,5 +836,9 @@ Set-AzureVMPuppetExtension -PuppetMasterServer $puppetServer |
 Update-AzureVM
 
 
+# Enabling Chef Virtual machine extension
+# The Chef does not currently have a specific Azure PowerShell extension cmdlet. 
 
-
+# Extensions without cmdlets
+# To get list of extensions 
+Get-AzureVMAvailableExtension | Out-GridView
