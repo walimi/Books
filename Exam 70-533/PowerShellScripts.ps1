@@ -842,3 +842,119 @@ Update-AzureVM
 # Extensions without cmdlets
 # To get list of extensions 
 Get-AzureVMAvailableExtension | Out-GridView
+
+
+#--------------------------------------------------------------------------------
+# Objective 2.4: Configure VM Networking
+
+# Configuring Endpoints
+
+# To create a port forwarded endpoint
+Get-AzureVM -ServiceName $serviceName -Name $vmName |
+Add-AzureEndpoint -Name "SQL" `
+                  -Protocol tcp `
+                  -LocalPort 1433 `
+                  -PublicPort 1433 |
+Update-AzureVM
+
+
+# To modify a port forwarded endpoint after it's been created
+Get-AzureVM -ServiceName $serviceName -Name $vmName |
+Set-AzureEndpoint -Name "SQL" `
+                  -Protocol tcp `
+                  -LocalPort 1433 `
+                  -PublicPort 2000 |
+Update-AzureVM
+
+
+# To remove an endpoint
+Get-AzureVM -ServiceName $serviceName -Name $vmName |
+Remove-AzureEndpoint -Name "SQL" |
+Update-AzureVM
+
+# This example shows adding a load-balanced endpoint with a TCP probe
+$config | Add-AzureEndpoint -Name "WEB" `
+                            -Protocol tcp `
+                            -LocalPort 80 `
+                            -PublicPort 80 `
+                            -LBSetName "LBWEB" `
+                            -ProbeProtocol tcp `
+                            -ProbePort 80
+  
+# To set the probe on an existing load balanced endpoint
+Set-AzureLoadBalancedEndpoint -ServiceName $serviceName `
+                              -LBSetName "LBWEB" `
+                              -ProbeProtocolHTTP `
+                              -ProbePort 80 `
+                              -ProbePath "/healthcheck.aspx"
+
+
+# To specify an access control list
+$permitSubnet1 = "[remote admin IP 1]/32"
+$permitSubnet2 = "[remote admin IP 1]/32"
+$acl = New-AzureAclConfig
+Set-AzureAclConfig -ACL $acl `
+                   -AddRule Permit `
+                   -RemoteSubnet $permitSubnet1 `
+                   -Order 1 `
+                   -Description "remote admin 1"
+                                                          
+Set-AzureAclConfig -ACL $acl `
+                   -AddRule Permit `
+                   -RemoteSubnet $permitSubnet2 `
+                   -Order 2 `
+                   -Description "remote admin 2"
+
+Get-AzureVM -ServiceName $serviceName -Name $vmName |
+Set-AzureEndpoint -Name "PowerShell" -ACL $acl |
+UpdateAzureVM
+                                                 
+                                
+# Configuring reserved IP addresses
+# To create a new reserved IP 
+$reservedIPName = "WebFarm"
+$label = "IP for Webfarm"
+$location = "West US"
+New-AzureReservedIP -ReservedIPName $reservedIPName `
+                    -Label $label `
+                    -Location $location
+
+# After the reserved IP has been created, you can associate it with the cloud service
+# hosting your VM at creation time. You can use either command
+New-AzureQuickVM -ReservedIPName $reservedIPName # (other params)
+New-AzureVM -ReservedIPName $reservedIPName # (other params)
+
+
+# You can use the Get-AzureReservedIP to enumarate list of available reserved IP addresses
+# This command also accepts the
+
+# To delete a reserved ip address use the Remove-AzureReservedIP. 
+
+
+# Configuring public IP addresses
+
+# This example shows how to add a new public IP address named PassiveFTP to an existing VM
+Get-AzureVM -ServiceName $serviceName -Name $vmName |
+Set-AzurePublicIP -PublicIPName "PassiveFTP" |
+Update-AzureVM
+
+# To extract the new public IP address
+Get-AzureVM -ServiceName $serviceName -Name $vmName | Get-AzurePublicIP
+
+# To remove public IP
+Get-AzureVM -ServiceName $serviceName -Name $vmName |
+Remove-AzurePublicIP -PublicName "PassiveFTP" |
+Update-AzureVM
+
+
+
+
+
+
+
+
+
+
+
+
+
