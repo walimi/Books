@@ -337,25 +337,437 @@ $credentials = Get-Credentials
 Enter-PSSession -ConnectionUri $uri -Credential $credentials
 
 
+# Objective 2.2: Implement images and disks
+
+# How to upload a virtual hard disk file to an Azure Storage account
+
+$storage = "[storage account name]"
+$storagePath = "https://$storage.blob.core.windows.net/uploads/myosdisk.vhd"
+$sourcePath = "C:\mydisks\myosdisk.vhd"
+
+Add-AzureVhd -Destination $storagePath `
+             -LocalFilePath $sourcePath
+
+# Downloading VM using Save-AzureVHD
+Save-AzureVHD -Source $storagePath
+              -LocalFilePath $localPath
+
+# To create a generic image
+Save-AzureVMImage -ServiceName $serviceName `
+                  -Name $vmName `
+                  -ImageName  $imageName `
+                  -ImageLabel $imageLabel `
+                  -OSState Generalized
+
+# To create a specialized image
+Save-AzureVMImage -ServiceName $serviceName `
+                  -Name $vmName `
+                  -ImageName  $imageName `
+                  -ImageLabel $imageLabel `
+                  -OSState Specialized
+
+# To create a legacy operating system image (simply omit the OSState param)
+Save-AzureVMImage -ServiceName $serviceName `
+                  -Name $vmName `
+                  -ImageName  $imageName `
+                  -ImageLabel $imageLabel `
+
+# To change the configuration of a captured image.
+#      The following code changes the HostCache setting and the label
+#      of an existing data disk
+$diskName = "[data disk name]"
+$imageName = "[image name]"
+$imageLabel = "[new image label]"
+
+$imgCtx = Get-AzureVMImage $imageName
+$config = Get-AzureVMImageDiskConfigSet -ImageContext $imgCtx
+
+Set-AzureVMImageDataDiskConfig -DataDiskName $diskName `
+                               -HostCaching ReadWrite `
+                               -DiskConfig $config
+                 
+Update-AzureVMImage -ImageName $diskName `
+                    -Label $imageLabel `
+                    -DiskConfig $config
+
+
+# To associate a virtual hard disk (.vhd) file as a disk (not an image)
+#       The following code registers the disk named MyOSDisk with the VHD file  
+$storage = "[storage account name]"
+$storagePath = "https://$storage.blob.core.windows.net/uploads/myosdisk.vhd"
+$diskName = "MyOSDisk"
+$label = "MyOSDisk"
+Add-AzureDisk -DiskName $diskName -Label $label -MediaLocation $storagePath -OS Windows
+
+# To create a data disk you would just omit the OS parameter
+$storage = "[storage account name]"
+$storagePath = "https://$storage.blob.core.windows.net/uploads/mydatadisk.vhd"
+$diskName = "MyDataDisk"
+$label = "MyDataDisk"
+Add-AzureDisk -DiskName $diskName -Label $label -MediaLocation $storagePath
 
 
 
+# To associate a Linux-based image
+$storage = "[storage account name]"
+$storagePath = "https://$storagePath.blob.core.windows.net/uploads/myosimage.vhd"
+$imageName = "MyGeneralizedImage"
+$label = "MyGeneralizedImage"
+Add-AzureVMImage -ImageName $imageName `
+                 -MediaLocation $storagePath `
+                 -OS Linux
 
 
+# To create a VM with 10GB data disk already attached when VM is provisioned
+$adminUser = "[admin user name]"
+$password = "[admin password]"
+$serviceName = "contoso-vms"
+$location = "West US"
+$size = "Small"
+$vmName = "vm1"
+
+$imageFamily = "Windows Server 2012 R2 Datacenter"
+$imageName = Get-AzureVMImage | 
+                where {$_.ImageFamily -eq $imageFamily } |
+                          sort PublishedDate -Descending |
+                 select -ExpandProperty ImageName -First 1
 
 
+NewAzureVMConfig -Name $vmName `
+                 -InstanceSize $size
+                 -ImageName $imageName |
+
+Add-AzureProvisioningConfig -Windows `
+                            -AdminUsername $adminUserName `
+                            -Password $password |
+
+Add-AzureDataDisk -CreateNew `
+                  -DiskSizeInGB 10 `
+                  -LUN 0 `
+                  -DiskLabel "data" |
+                  
+                  
+New-AzureVM -ServiceName $serviceName `
+            -Location $location  
+
+# To attach a second data disk on the virtual machine
+$serviceName = "contoso-vms"
+$vmName = "vm1"
+Get-AzureVM -ServiceName $serviceName -Name $vmName |
+Add-AzureDataDisk -CreateNew `
+                  -DiskSizeInGB 500 `
+                  -LUN 1 `
+                  -DiskLabel "data 2" |
+Update-AzureVM
+
+# To view the data disk configureation of your VM
+Get-AzureVM -ServiceName $serviceName -Name $vmName | Get-AzureDataDisk  
 
 
+# To reference an existing data disk use the Import parameter
+#      This code assumes the disk is already assocaited with the VM
+Add-AzureDataDisk -Import -DiskName "mydatadisk" -LUN 1
+
+# If the VHD file was not associated 
+$storagePath = "https://$storage.blob.core.windows.net/uploads/mydatadisk.vhd"
+Add-AzureDataDisk -ImportFrom `
+                  -DiskLabel "Data 2" `
+                  -MediaLocation $storagePath
+                  -LUN 1  
+# To delete a VM image and the associated .vhd file
+Remove-AzureVMImage -ImageName "MyGeneralizedImage" -DeleteVHD
+
+# To delete a disk and the associated .vhd file
+Remove-AzureDisk -DiskName "mydatadisk" -DeleteVHD
+
+#--------------------------------------------------------------------------------------------
+# Objective 2.3: Perform Configuration Management
+
+# Using the Custom Script Extension
+
+# The following script deploys the Active Directory Domain Services role. It accepts two parameters:
+# one is for the domain name and the other is for the administrator password
+param (
+    $domain, 
+    $password
+)
+
+$smPassword = (ConvertTo-SecureString $password -AsPlainText -Force)
+
+Install-WindowsFeature -Name "AD-Domain-Services" `
+                       -IncludeManagementTools `
+                       -IncludeAllSubFeature
+                       
+                       
+Install-ADDSForest -DomainName $domain `
+                   -DomainMode Win2012 `
+                   -ForestMode Win2012 `
+                   -Force `
+                   -SafeModeAdministratorPassword $smPassword
+
+# The followig code executes the Set-AzureVMCustomScriptExtension during provisioning time
+$scriptName = "install-active-directory.ps1"
+$scriptUri = http://$storageAccount.blob.core.windows.net/scripts/$scriptName
+$scriptArgument = "fabrikam.com $password"
+$imageFamily = "Windows Server 2012 R2 Datacenter"
+$imageName = Get-AzureVMImage |
+                where { $_.ImageFamily -eq $imageFamily } |
+                           sort PublishedDate -Descending |
+                  select -ExpandProperty ImageName -First 1
+
+New-AzureVMConfig -Name $vmName `
+                  -InstanceSize $size `
+                  -ImageName $imageName |
+                  
+                  
+Add-AzureProvisioningConfig -Windnows `
+                            -AdminUsername $adminUser `
+                            -Password -$password |
+
+Set-AzureSubnet -SubnetNames $subnet |
+Set-AzureStaticVNetIP -IPAddress $ipAddress |
+Set-AzureVMCustomScriptExtension -FileUri $scriptUri `
+                                 -Run $scriptName `
+                                 -Argument "$domain $password" |
+
+New-AzureVM -ServiceName $serviceName `
+            -Location $location
+            -VNetName $vnetName                                     
 
 
+# To run a custom extension script after the VM is configured
+Get-AzureVM -ServiceName $serviceName -Name $vmName |
+Set-AzureVMCustomScriptExtension -FileUri $scriptUri `
+                                 -Run $scriptName `
+                                 -Argument "$domain $password" |
+Update-AzureVM                                                                                                                      
 
 
+# Implementing Windows PowerShell Desired State Configuration
 
 
+# The following DSC script declares that the Web-Server role should be intsalled
+# along with the Web-Asp-Net45 feature. The Windows Feature code represents a 
+# DSC resource.
+Configuration ContosoSimple
+{
+    Node "localhost"
+    {
+        #Install the IIS role
+        WindowsFeature IIS
+        {
+            Ensure = "Present"
+            Name = "Web-Server"
+        }
+        
+        #Install ASP.NET 4.5
+        WindowsFeature AspNet45
+        {
+            Ensure = "Present"
+            Name = "Web-Asp-Net45"
+        }
+    }
+}
+
+# The following example uses a downloadable resource xWebAdministration to create a new IIS
+# website, stop the default website, and deploy an application from a file share to the 
+# destination website folder.
+
+Configuration ContoseAdvanced
+{
+    # Import the module that defines custom resources
+    # Import-DscResource -Module xWebAdministration 
+    # (uncomment the above line after downloading the
+    # xWebAdministration module from https://gallery.technet.microsoft.com/scriptcenter
+    # and storing it into the C:\Program Files\WindowsPowerShell\Modules folder)                                                                        
+    
+    Node "localhost"
+    {
+        # Install the IIS role
+        WindowsFeature IIS 
+        {
+            Ensure = "Present"
+            Name = "Web-Server"
+        }
+
+        # Install the ASP.NET 4.5 role
+        WindowsFeature AspNet45
+        {
+            Ensure = "Present"
+            Name = " Web-Asp-Net45"
+        }
+
+        # Stop existing website
+        xWebsite DefaultSite
+        {
+            Ensure = "Present"
+            Name = "Default Web Site"
+            State = "Stopped"
+            PhysicalPath = "C:\inetpub\wwwroot"
+            DependsOn = "[WindowsFeature]IIS"
+        }
+
+        # Copy the website content
+        File WebContent
+        {
+            Ensure = "Present"
+            SourcePath = "\\vmconfig\share\app"
+            DestinationPath = "C:\inetpub\contoso"
+            Recurse = $true
+            Type = "Directory"
+            DependsOn = "[WindowsFeature]AspNet45"
+        }
+
+        # Create a new website
+        xWebsite Fabrikam
+        {
+            Ensure = "Present"
+            Name = "Contoso Advanced"
+            State = "Started"
+            PhysicalPath = "C:\inetpub\contoso"
+            DependsOn="[File]WebContent"
+        }
+    }
+}
+
+# To publish the DSC configuration (including the resources)
+Publish-AzureVMDscConfiguration .\ContosoAdvanced.ps1 # (i.e., the above script)
+
+# To see the .zip file created by the above cmdlet
+$dscFileName = "ContosoAdvanced.ps1.zip" # refer to the book for filename
+Publish-AzureVMDscConfiguration .\ContosoAdvancedps1 `
+                               -ConfigurationArchivePath $dscFileName
+
+# To upload the generaeted .zip file directly. If the .zip file already exists in the
+# storage account, use the Force parameter to overwrite
+Publish-AzureVMDscConfiguraiton $dscFileName -Force
 
 
+# To specify an alternative storage account
+$storageAccount = "[storage account name]"
+$storageKey = (Get-AzureStorageKey -StorageAccountName $storageAccount).Primary
+$ctx = New-AzureStorageContext -StorageAccountName $storageAccount `
+                               -StorageAccountKey $storageKey
+
+Publish-AzureVMDscConfiguration -ConfigurationPath ".\ContosoAdvanced.ps1" `
+                                -StorageContext $ctx 
+                                
+                                
+# After the configuraiton is published it can applied to any virtual machine at 
+# provisioning time or afte the fact using the Set-AzureVMDscExtension cmdlet.
+$configArchive = "ContosoAdvanced.ps1.zip"
+$configName = "ContosoAdvanced"
+
+$imageFamily = "Windows Server 2012 R2 Datacenter"
+$imageName = Get-AzureVMImage |
+                where { $_.ImageFamily -eq $imageFamily } |
+                           sort PublishedDate -Descending |
+                  select -ExpandProperty ImageName -First 1                                                               
 
 
+New-AzureVMConfig -Name $vmName `
+                  -InstanceSize $size `
+                  -ImageName $imageName |
 
+
+Add-AzureProvisioningConfig -Windnows `
+                            -AdminUsername $adminUser `
+                            -Password -$password |
+
+Set-AzureSubnet -SubnetNames $subnet |
+Set-AzureVMDscExtension -ConfigurationArchive $configArchive `
+                        -ConfigurationName $configName |
+New-AzureVM -ServiceName $serviceName `
+            -Location $location
+            -VNetName $vnetName                                     
+
+
+# To apply the DSC configuration to an existing VM
+$configArchive = "Contoso.ps1.zip"
+$configName = "ContosoAdvanced"
+Get-AzureVM -ServiceName $serviceName -Name $vmName |
+Set-AzureVMDscExtension -ConfigurationArchive $configArchive `
+                        -ConfigurationName $configName |
+Update-AzureVM
+
+# To make the previous example flexible enough to deploy any web application with the same
+# dependencies, you could move some of the parameters to a Windows PowerShell data file 
+# (file with a .psd1 extension) and create a hashtable
+
+# ContosoConfig.psd1
+@{
+    AllNodes = @(
+        @{
+            NodeName = "localhost"
+            WebsiteName = "ContosoWebApp"
+            SourcePath = "\\vmconfig\share\app"
+            DestinationPath = "C:\inetpub\contoso"
+        }
+    );
+}
+
+
+# The following code references the variable names inline using the $Node.[Variable] name syntax.
+Configuration WebSiteConfig
+{
+    # Import the module that defines custom resources
+    # Import-DscResource -Module xWebAdministration 
+    # (uncomment the above line after downloading the
+    # xWebAdministration module from https://gallery.technet.microsoft.com/scriptcenter
+    # and storing it into the C:\Program Files\WindowsPowerShell\Modules folder)                                                                        
+    
+    Node $Node.NodeName
+    {
+        # Install the IIS role
+        WindowsFeature IIS 
+        {
+            Ensure = "Present"
+            Name = "Web-Server"
+        }
+
+        # Install the ASP.NET 4.5 role
+        WindowsFeature AspNet45
+        {
+            Ensure = "Present"
+            Name = " Web-Asp-Net45"
+        }
+
+        # Stop existing website
+        xWebsite DefaultSite
+        {
+            Ensure = "Present"
+            Name = "Default Web Site"
+            State = "Stopped"
+            PhysicalPath = "C:\inetpub\wwwroot"
+            DependsOn = "[WindowsFeature]IIS"
+        }
+
+        # Copy the website content
+        File WebContent
+        {
+            Ensure = "Present"
+            SourcePath = $Node.SourcePath
+            DestinationPath = $Node.DestinationPath
+            Recurse = $true
+            Type = "Directory"
+            DependsOn = "[WindowsFeature]AspNet45"
+        }
+
+        # Create a new website
+        xWebsite Fabrikam
+        {
+            Ensure = "Present"
+            Name = $Node.WebsiteName
+            State = "Started"
+            PhysicalPath = "C:\inetpub\contoso"
+            DependsOn="[File]WebContent"
+        }
+    }
+}
+
+
+# Because the script configuraiton has changed, the Publish-VMDscConfiguration cmdlet
+# is used to publish the configuration.
+Publish-AzureVMDscConfiguration .\DeployWebApp.ps1
 
 
