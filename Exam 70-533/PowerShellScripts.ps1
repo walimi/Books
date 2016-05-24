@@ -801,6 +801,11 @@ $config | Update-AzureVM
 Remove-AzureVMDscExtension -VM $config
 
 # Using the Virtual Machine Acccess Extension
+# This cmdlet can be used to reset the local administrator name, password and also 
+# enable Remote Desktop access if it is accidentaly disabled.
+Get-AzureVM -ServiceName $serviceName -Name $vmName |
+Set-AzureVMAccessExtension -UserName $userName -Password $password |
+Update-AzureVM
 
 
 
