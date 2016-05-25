@@ -965,6 +965,57 @@ Get-AzureVm -ServiceName $serviceName -Name $vmName |
 Set-AzureVMSize -InstanceSize $newSize |
 Update-AzureVM
 
+#-------------------------------------------------------------------------------------------
+# Objective 2.6: Design and Implement VM Storage
+
+# Configuraing virtual machine disk caching
+
+# The following example changes the operating system disk HostCaching property from ReadWrite
+# to ReadOnly of an existing VM
+Get-AzureVM -ServiceName $serviceName -Name $vmName |
+Set-AzureOSDisk -HostCaching ReadOnly |
+Update-AzureVM
+
+# To specify the caching option for a data disk. Use the LUN property to specify which disk to update
+Get-AzureVM -ServiceName $serviceName -Name $vmName |
+Set-AzureDataDisk -LUN 0 -HostCaching ReadWrite |
+Update-AzureVM
+
+
+# Implementing disk redundancy for performance
+
+# This example creates a new storage pool named VMStoragePool with all of the available data disks
+# configured as part of the pool. 
+New-StoragePool -FriendlyName "VMStoragePool" `
+                -StorageSubsystemFriendlyName "Storage Spaces" `
+                -PhysicalDisks (Get-PhysicalDisk -CanPool $True)
+
+$disks = Get-StoragePool -FriendlyName "VMStoragePool" `
+                         -IsPrimordial $false |
+                         Get-PhysicalDisk
+
+New-VirtualDisk -FriendlyName "VirtualDisk1" `
+                -ResiliencySettingName Simple `
+                -NumberOfColumns $disks.Count `
+                -UseMaximumSize -Interleave 256KB `
+                -StoragePoolFriendlyName "VMStoragePool"   
+                                                                         
+# Implementing Azure Files
+
+# To create a share
+$stroage = "[storage account name]"
+$accountKey = "[storage account key]"
+$sharedName = "sharedStorage"
+Import-Module .\AzureStorageFile.psd1 # you'lll need to download this online (see 70-533 book)
+$ctx = New-AzureStorageContext $storage $accountKey
+$s = New-AzureStorageShare $shareName -Context $ctx
+
+# To map a drive
+net use z: \\[storage account name].file.core.windows.net\<sahre name> /u: \\[storage acccountname] [storage account key]
+ 
+
+
+
 
 
 
