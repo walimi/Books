@@ -947,7 +947,23 @@ Remove-AzurePublicIP -PublicName "PassiveFTP" |
 Update-AzureVM
 
 
+#-------------------------------------------------------------------------------------------
+# Objective 2.5: Configure VM for Resiliency
 
+# Configuring avaialability sets
+
+# To add an existing VM to an availability set
+Get-AzureVM -ServiceName $serviceName -Name $vmName |
+Set-AzureAvailabilitySet WebACVSet |
+Update-AzureVM
+
+# Scaling a machine up or down
+
+# To change the size of a virtual machine
+$newSize = "A9"
+Get-AzureVm -ServiceName $serviceName -Name $vmName |
+Set-AzureVMSize -InstanceSize $newSize |
+Update-AzureVM
 
 
 
