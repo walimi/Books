@@ -1014,8 +1014,22 @@ $s = New-AzureStorageShare $shareName -Context $ctx
 net use z: \\[storage account name].file.core.windows.net\<sahre name> /u: \\[storage acccountname] [storage account key]
  
 
+#-------------------------------------------------------------------------------------------
+# Objective 2.7: Monitor VMs
 
+# Configuring Diagnostics
 
+# To modify a virtual machine configuration
+$configPath = "C:\Diagnostics\diagnosticsConfig.xml"
+$storageContext = New-AzureStorageContext -StorageAccountName $storage `
+                                          -StorageAccountKey $accountKey
+
+Get-AzureVM -ServiceName $serviceName -Name $vmName |
+Set-AzureVMDiagnosticsExtension -DiagnosticsConfigurationPath $configPath `
+                                -Version "1.*" `
+                                -StorageContext $storageContext |
+
+Update-AzureVM -ServiceName $serviceName -Name $vmName
 
 
 
