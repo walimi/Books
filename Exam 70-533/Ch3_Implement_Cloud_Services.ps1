@@ -49,14 +49,14 @@ Add-AzureCertificate -ServiceName $csName -CertToDeploy $cert -Password $certPwd
 # Reserving an IP address
 
 # To reserve an IP address 
-New-AzureReservedIP -ReservedIPName "contosocloudserviceip" -Location "East US"
+New-AzureReservedIP -ReservedIPName "reservedipaddress-1" -Location "East US"
 
 # To retrieve the IP addressess reserved in a subscription
 Get-AzureReservedIP | Select ReservedIPName, Address
 
 
 # To remove a reserved IP address
-Remove-AzureReservedIP -ReservedIPName "contosocloudserviceip" -Force
+Remove-AzureReservedIP -ReservedIPName "reservedipaddress-1" -Force
 
 
 # Configuring role instance size
@@ -89,5 +89,29 @@ Set-AzureServiceRemoteDesktopExtension -ServiceName $csName -Role $csRole `
                                        -Credential $creds `
                                        -X509Certificate $cert 
 
-# To disalbe RDP access
+# To disable RDP access
 Remove-AzureServiceRemoteDesktopExtension -ServiceName $csName -Role $csRole
+
+
+# Objective 3.2: Deploy and manage cloud services
+
+# Deploying a cloud service
+
+# To publish a cloud service using PowerShell
+
+$csLocation = "West US"
+$deployName = "V1-BETA"
+$pathCSPKG = Get-Item E:\Contoso.CloudService.Solution\ContosoDeployment\ContosoCloudService.cspkg
+$pathCSCFG = Get-Item E:\Contoso.CloudService.Solution\Contoso.CloudService\ServiceConfiguration.Cloud.cscfg
+
+Publish-AzureServiceProject -Location $csLocation -Slot "Staging" `
+                            -Package $pathCSPKG -Configuration $pathCSCFG -DeploymentName $deployName
+
+
+
+# Creating a Service Bus namespace
+New-AzureSBNameSpace -Name Contoso-Mixed -Location "West US"
+
+# To see which locations are available for the service bus
+Get-AzureSBLocation | Select Code
+
