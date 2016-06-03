@@ -116,7 +116,27 @@ Get-ChildItem $filePath | foreach {
 }                                                                                                 
                                     
 
+# Object 4.2: Manage access
 
+# Creating and using Shared Access Signatures (SAS)
+
+# The following example shows how to create a SAS URI
+
+Add-AzureAccount
+Select-AzureSubscription -SubscriptionName "Pay-As-You-Go" –Default
+
+$account = "wahidstorage1"
+$key = (Get-AzureStorageKey -StorageAccountName $account).Primary
+$context = New-AzureStorageContext -StorageAccountName $account `
+                                   -StorageAccountKey $key `
+$startTime = Get-Date 
+$endTime = $startTime.AddHours(4)
+New-AzureStorageBlobSASToken -Container "media" `
+                             -Blob "Ch01.pptx" `
+                             -Permission "rwd" `
+                             -StartTime $startTime `
+                             -ExpiryTime $endTime `
+                             -Context $context
 
 
                                         
