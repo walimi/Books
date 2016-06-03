@@ -139,7 +139,31 @@ New-AzureStorageBlobSASToken -Container "media" `
                              -Context $context
 
 
-                                        
+# Objective 4.3: Configure Diagnostics, monitoring, and analytics
+
+# Configuring Azure Storage Diagnostics
+
+# In the following example, the Set-AzureStorageMetricsProperty cmdlet enables hourly
+# storage metrics on the blob service with a retention period of 30 days and at the
+# ServiceAndApi level. The next call is to the Set-AzureStorageServiceLoggingProperty
+# cmdlet, which is also configuring the blob service and 30-day retention period but 
+# is only logging delete operations.
+
+$account = "[storage account name]"
+$key = (Get-AzureStorageKey -StorageAccountName $account).Primary
+$context = New-AzureStorageContext -StorageAccountName $account `
+                                   -StorageAccountKey $key
+                                   
+Set-AzureStorageServiceMetricsProperty -ServiceType Blob `
+                                       -MetricsType Hour `
+                                       -RetentionDays 30 `
+                                       -MetricsLevel ServiceAndApi `
+                                       -Context $context
+                                       
+Set-AzureStorageServiceLoggingProperty -ServiceType Blob `
+                                       -RetentionDays 30 `
+                                       -LoggingOperations Delete `
+                                       -Context $context                                                                              
 
 
 
