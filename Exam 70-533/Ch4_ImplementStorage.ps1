@@ -165,6 +165,79 @@ Set-AzureStorageServiceLoggingProperty -ServiceType Blob `
                                        -LoggingOperations Delete `
                                        -Context $context                                                                              
 
+# Objective 4.4: Implement SQL Databases
+
+# Implementing Point-in-time recovery
+
+# The following example enumerates all the recoverable databases from a specified SQL Database server
+Get-AzureSqlRecoverableDatabase -ServerName $sqlServer
+
+# The following example shows how you can use the Start-AzureSqlDatabaseRestore cmdlet to recover
+# a database to a specified point-in-time. 
+$recoveryPoint = "Sunday, November 30, 2014, 4:55 00 pm"
+$sqlServer = "examrefdbsrv"
+$sourceSqlDB = "ExamRefDB1"
+$targetSqlDB = "ExamRefDBRestored"
+
+$op = Start-AzureSqlDatabaseRestore -SourceServerName $sqlServer `
+                                    -SourceDatabaseName $sourceSqlDB `  
+                                    -PointInTime $recoveryPoint `
+                                    -TargetServerName $sqlServer `
+                                    -TargetDatabasName $targetSqlDB
+
+# The operation can be monitored by passing the RequestID property of the returned operation
+# object to the Get-AzureSqlDatabaseOperation cmdlet
+$ctx = New-AzureSqlDatabaseServerContext -ServerName $sqlServer `
+                                         -UseSubscription
+Get-AzureSqlDatabaseOperation -ConnectionContext $ctx `
+                              -OperationGuid $op.RequestID
+
+
+# Implementing Geo-replication
+
+# Standard geo-replication
+
+# The following example shows how to create a secondary database for geo-replication
+$sqlPrimaryServer = "[primary server name]"
+$sqlSecondaryServer = "[secondary server name]" # this database server must already exist
+$sqlDB = "[database name]"
+Start-AzureSqlDatabaseCopy -ServerName $sqlPrimaryServer `
+                           -DatabaseName $sqlDB `
+                           -PartnerServer $sqlSecondaryServer `
+                           -ContinousCopy `
+                           -OfflineSecondary
+
+# To break the continous copy relationship use the Stop-AzureSqlDatabaseCopy cmdlet
+# Note: With standard geo-replication you must specify the ForcedTermination parameter because
+# planned termination is only supported with active geo-replication. 
+Stop-AzureSqlDatabaseCopy -ServerName $sqlPrimaryServer `
+                          -PartnerServer $sqlSecondaryServer `
+                          -DatabaseName $sqlDB `
+                          -ForcedTermination
+
+# Active geo-replication
+
+# To add a secondary database replica use the Start-AzureSqlDatabaseCopy cmdlet. To make the
+# database online with read-only access, omit the OfflineSecondary parameter. 
+$sqlPrimaryServer = "[primary server name]"
+$sqlSecondaryServer = "[secondary server name]" # this database server must already exist
+$sqlDB = "[database name]"
+Start-AzureSqlDatabaseCopy -ServerName $sqlPrimaryServer `
+                           -DatabaseName $sqlDB `
+                           -PartnerServer $sqlSecondaryServer `
+                           -ContinousCopy 
+
+# Just like standard geo-replication, you can use the Stop-AzureSqlDatabaseCopy cmdlet to 
+# break the continous copy relationship with the primary database in active geo-replication. 
+# However, activea geo-replication does support planned termination so you do not have to 
+# specify the ForcedTermination parameter unless needed. 
+Stop-AzureSqlDatabaseCopy -ServerName $sqlPrimaryServer `
+                          -PartnerServer $sqlSecondaryServer `
+                          -DatabaseName $sqlDB
+
+
+
+                      
 
 
 
