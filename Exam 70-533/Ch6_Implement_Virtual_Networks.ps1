@@ -143,3 +143,15 @@ New-AzureVM -ServiceName $serviceName `
             -VMs $vm1, $vm2 `
             -InternalLoadBalancerConfig $ilb
 
+# Objective 6.2 Modify a network configuration
+
+# Changing an existing network configuration
+
+# To change a virtual machine's subnet, first retrieve the current virtual machine configuration
+# with a call to the Get-AzureVM cmdlet. Next, pass the returned configuration to Set-AzureSubnet
+# cmdlet. The modified configuration is then passed to the Update-AzureVM. 
+
+Get-AzureVM -ServiceName $serviceName `
+            -Name $vmName |
+Set-AzureSubnet -SubnetNames $newSubnet |
+Update-AzureVM
