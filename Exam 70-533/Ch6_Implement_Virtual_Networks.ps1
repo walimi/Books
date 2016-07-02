@@ -149,7 +149,8 @@ New-AzureVM -ServiceName $serviceName `
 
 # To change a virtual machine's subnet, first retrieve the current virtual machine configuration
 # with a call to the Get-AzureVM cmdlet. Next, pass the returned configuration to Set-AzureSubnet
-# cmdlet. The modified configuration is then passed to the Update-AzureVM. 
+# cmdlet. The modified configuration is then passed to the Update-AzureVM. Note that changing the 
+# the subnet or static IP address of a virtual machine will cause the virtual machine to reboot. 
 
 Get-AzureVM -ServiceName $serviceName `
             -Name $vmName |
